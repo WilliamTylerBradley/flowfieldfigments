@@ -150,7 +150,7 @@ get_anchor_points <- function(seeds, size, anchor_layout,
                                                     seed = seeds[3])) %>%
       dplyr::mutate(angle =
                       (atan2(.data$y_direction, .data$x_direction) * 180/pi) %%
-                      360 + hue_turn,
+                      360,
                     percentage = stats::pnorm(.data$distance, mean = 0,
                                        stats::sd(.data$distance)) * 100) %>%
       dplyr::rowwise() %>%
