@@ -93,15 +93,13 @@ create_gif <- function(seeds, size, anchor_layout, hue_turn, color_scheme,
       ggplot2::ggplot() +
         ggplot2::geom_point(data = point_paths,
                             ggplot2::aes(x = .data$x, y = .data$y,
-                                         color = .data$hex_color,
-                                         alpha = .data$alpha_value),
+                                         color = .data$hex_color),
                             size = .25,
                             stroke = 0, shape = 16) +
         ggplot2::geom_segment(data = sub_paths,
                               ggplot2::aes(x = .data$x, y = .data$y,
                                            xend = .data$xend, yend = .data$yend,
-                                           color = .data$hex_color,
-                                           alpha = .data$alpha_value),
+                                           color = .data$hex_color),
                               lineend = "round",
                               linejoin = "round",
                               size = .15) +
