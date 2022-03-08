@@ -20,3 +20,7 @@ Imports:
     rlang,
     stringr,
     tidyr
+Suggests: 
+    rmarkdown,
+    knitr
+VignetteBuilder: knitr
