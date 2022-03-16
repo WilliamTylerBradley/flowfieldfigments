@@ -1,0 +1,26 @@
+---
+title: "Anchor Points"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Anchor Points}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+<style>
+    pre {
+        border: 0;
+    }
+</style>
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+options(rmarkdown.html_vignette.check_title = FALSE)
+```
+
+```{r setup}
+library(flowfieldfigments)
+```
