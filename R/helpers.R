@@ -11,21 +11,29 @@
 #' get_color(90, 50)
 #' @export
 get_color <- function(angle, percentage) {
-  vectors <- data.frame(v1 = c(0.99258009214842,
-                               0,
-                               -0.121592601216663),
-                        v2 = c(0.0172593263893888,
-                               0.989874705747223,
-                               0.14089067596698),
-                        p = c(0,
-                              0,
-                              74.8443331534229))
+  vectors <- data.frame(
+    v1 = c(
+      0.99258009214842,
+      0,
+      -0.121592601216663
+    ),
+    v2 = c(
+      0.0172593263893888,
+      0.989874705747223,
+      0.14089067596698
+    ),
+    p = c(
+      0,
+      0,
+      74.8443331534229
+    )
+  )
 
   v <- vectors[["p"]] +
-    (percentage / 100 * 63) * cos(angle * pi/180) * vectors[["v1"]] +
-    (percentage / 100 * 63) * sin(angle * pi/180) * vectors[["v2"]]
+    (percentage / 100 * 63) * cos(angle * pi / 180) * vectors[["v1"]] +
+    (percentage / 100 * 63) * sin(angle * pi / 180) * vectors[["v2"]]
 
-  hue <- (atan2(v[2], v[1]) * 180/pi) %% 360
+  hue <- (atan2(v[2], v[1]) * 180 / pi) %% 360
   chroma <- sqrt(v[1]^2 + v[2]^2)
   luminance <- v[3]
 
@@ -48,7 +56,7 @@ get_color <- function(angle, percentage) {
 #' get_color_subset(180, 90, 270, 80)
 #' @export
 get_color_subset <- function(center, width, angle, percentage) {
-  get_color(width * sin(angle * pi/180) + center, percentage)
+  get_color(width * sin(angle * pi / 180) + center, percentage)
 }
 
 #' Internal function to get directional vectors.
@@ -62,18 +70,24 @@ get_color_subset <- function(center, width, angle, percentage) {
 #' @return The direction vectors the points should move.
 get_vectors <- function(points, seeds) {
   vectors <- points %>%
-    dplyr::mutate(x_direction = ambient::gen_simplex(.data$x,
-                                                     .data$y,
-                                                     frequency = .01,
-                                                     seed = seeds[1]),
-                  y_direction = ambient::gen_simplex(.data$x,
-                                                     .data$y,
-                                                     frequency = .01,
-                                                     seed = seeds[2])) %>%
+    dplyr::mutate(
+      x_direction = ambient::gen_simplex(.data$x,
+        .data$y,
+        frequency = .01,
+        seed = seeds[1]
+      ),
+      y_direction = ambient::gen_simplex(.data$x,
+        .data$y,
+        frequency = .01,
+        seed = seeds[2]
+      )
+    ) %>%
     dplyr::mutate(vector_length = sqrt(.data$x_direction^2 +
-                                         .data$y_direction^2)) %>%
-    dplyr::mutate(x_direction = .data$x_direction / .data$vector_length,
-                  y_direction = .data$y_direction / .data$vector_length) %>%
+      .data$y_direction^2)) %>%
+    dplyr::mutate(
+      x_direction = .data$x_direction / .data$vector_length,
+      y_direction = .data$y_direction / .data$vector_length
+    ) %>%
     dplyr::select(-.data$vector_length)
 }
 
@@ -89,9 +103,11 @@ get_vectors <- function(points, seeds) {
 move_points <- function(points, seeds) {
   points <- points %>%
     get_vectors(seeds) %>%
-    dplyr::mutate(x = .data$x + .data$x_direction * .5,
-                  y = .data$y + .data$y_direction * .5,
-                  time = .data$time + 1)
+    dplyr::mutate(
+      x = .data$x + .data$x_direction * .5,
+      y = .data$y + .data$y_direction * .5,
+      time = .data$time + 1
+    )
   return(points)
 }
 
@@ -110,79 +126,104 @@ move_points <- function(points, seeds) {
 #' @return Dataframe of points with attributes
 get_anchor_points <- function(seeds, size, anchor_layout,
                               hue_turn, color_scheme,
-                              color_subset_center, color_subset_width){
-  if(anchor_layout == "random") {
+                              color_subset_center, color_subset_width) {
+  if (anchor_layout == "random") {
     # random layout
-    points <- as.data.frame(mvtnorm::rmvnorm(n = size,
-                                             sigma = diag(size * 4 / (floor(log10(size)) + 1),
-                                                          nrow = 2))) %>% # sd is number 4/digits
-      dplyr::rename(x = .data$V1,
-                    y = .data$V2) %>%
+    points <- as.data.frame(mvtnorm::rmvnorm(
+      n = size,
+      sigma = diag(size * 4 / (floor(log10(size)) + 1),
+        nrow = 2
+      )
+    )) %>% # sd is number 4/digits
+      dplyr::rename(
+        x = .data$V1,
+        y = .data$V2
+      ) %>%
       dplyr::mutate(id = dplyr::row_number())
-
-  } else if(anchor_layout == "spiral") {
+  } else if (anchor_layout == "spiral") {
     # spiral layout
     golden <- ((sqrt(5) + 1) / 2) * (2 * pi)
 
-    points <- data.frame(x = sqrt(seq(1, size)) * cos(golden * seq(1, size)) * 2.5,
-                         y = sqrt(seq(1, size)) * sin(golden * seq(1, size)) * 2.5) %>%
+    points <- data.frame(
+      x = sqrt(seq(1, size)) * cos(golden * seq(1, size)) * 2.5,
+      y = sqrt(seq(1, size)) * sin(golden * seq(1, size)) * 2.5
+    ) %>%
       dplyr::mutate(id = dplyr::row_number())
-
   } else {
     # diamond grid
-    grid_width <- ifelse(size <= 1500/2, ceiling(sqrt(size)), floor(sqrt(size)))
+    grid_width <- ifelse(size <= 1500 / 2, ceiling(sqrt(size)), floor(sqrt(size)))
 
-    points <- tidyr::expand_grid(x_start = seq(1, grid_width) - (grid_width / 2) - .5,
-                                 y_start = seq(1, grid_width) - (grid_width / 2) - .5) %>%
-      dplyr::mutate(x = (.data$x_start * cos(45 * pi/180) -
-                           .data$y_start * sin(45 * pi/180)) * 5,
-                    y = (.data$x_start * sin(45 * pi/180) +
-                           .data$y_start * cos(45 * pi/180)) * 5,
-                    id = dplyr::row_number()) %>%
+    points <- tidyr::expand_grid(
+      x_start = seq(1, grid_width) - (grid_width / 2) - .5,
+      y_start = seq(1, grid_width) - (grid_width / 2) - .5
+    ) %>%
+      dplyr::mutate(
+        x = (.data$x_start * cos(45 * pi / 180) -
+          .data$y_start * sin(45 * pi / 180)) * 5,
+        y = (.data$x_start * sin(45 * pi / 180) +
+          .data$y_start * cos(45 * pi / 180)) * 5,
+        id = dplyr::row_number()
+      ) %>%
       dplyr::select(-.data$x_start, -.data$y_start)
   }
 
-  if(color_scheme == "subset") {
+  if (color_scheme == "subset") {
     points <- get_vectors(points, seeds) %>%
       dplyr::mutate(distance = ambient::gen_simplex(.data$x,
-                                                    .data$y,
-                                                    frequency = .01,
-                                                    seed = seeds[3])) %>%
-      dplyr::mutate(angle =
-                      (atan2(.data$y_direction, .data$x_direction) * 180/pi) %%
-                      360 + hue_turn,
-                    percentage = stats::pnorm(.data$distance, mean = 0,
-                                       stats::sd(.data$distance)) * 100) %>%
+        .data$y,
+        frequency = .01,
+        seed = seeds[3]
+      )) %>%
+      dplyr::mutate(
+        angle =
+          (atan2(.data$y_direction, .data$x_direction) * 180 / pi) %%
+            360 + hue_turn,
+        percentage = stats::pnorm(.data$distance,
+          mean = 0,
+          stats::sd(.data$distance)
+        ) * 100
+      ) %>%
       dplyr::rowwise() %>%
-      dplyr::mutate(hex_color = get_color_subset(color_subset_center,
-                                                 color_subset_width,
-                                                 .data$angle,
-                                                 .data$percentage)) %>%
+      dplyr::mutate(
+        hex_color = get_color_subset(
+          color_subset_center,
+          color_subset_width,
+          .data$angle,
+          .data$percentage
+        ),
+        time = 0
+      ) %>%
       dplyr::ungroup() %>%
-      dplyr::mutate(x_color = .data$percentage * cos(.data$angle * pi/180),
-                    y_color = .data$percentage * sin(.data$angle * pi/180),
-                    time = 0) %>%
-      dplyr::select(.data$id, .data$x, .data$y,
-                    .data$hex_color, .data$percentage, .data$time)
+      dplyr::select(
+        .data$id, .data$x, .data$y,
+        .data$hex_color, .data$percentage, .data$time
+      )
   } else {
     points <- get_vectors(points, seeds) %>%
       dplyr::mutate(distance = ambient::gen_simplex(.data$x,
-                                                    .data$y,
-                                                    frequency = .01,
-                                                    seed = seeds[3])) %>%
-      dplyr::mutate(angle =
-                      (atan2(.data$y_direction, .data$x_direction) * 180/pi) %%
-                      360 + hue_turn,
-                    percentage = stats::pnorm(.data$distance, mean = 0,
-                                       stats::sd(.data$distance)) * 100) %>%
+        .data$y,
+        frequency = .01,
+        seed = seeds[3]
+      )) %>%
+      dplyr::mutate(
+        angle =
+          (atan2(.data$y_direction, .data$x_direction) * 180 / pi) %%
+            360 + hue_turn,
+        percentage = stats::pnorm(.data$distance,
+          mean = 0,
+          stats::sd(.data$distance)
+        ) * 100
+      ) %>%
       dplyr::rowwise() %>%
-      dplyr::mutate(hex_color = get_color(.data$angle, .data$percentage)) %>%
+      dplyr::mutate(
+        hex_color = get_color(.data$angle, .data$percentage),
+        time = 0
+      ) %>%
       dplyr::ungroup() %>%
-      dplyr::mutate(x_color = .data$percentage * cos(.data$angle * pi/180),
-                    y_color = .data$percentage * sin(.data$angle * pi/180),
-                    time = 0) %>%
-      dplyr::select(.data$id, .data$x, .data$y,
-                    .data$hex_color, .data$percentage, .data$time)
+      dplyr::select(
+        .data$id, .data$x, .data$y,
+        .data$hex_color, .data$percentage, .data$time
+      )
   }
 
   return(points)
@@ -199,14 +240,18 @@ get_anchor_points <- function(seeds, size, anchor_layout,
 #' @importFrom rlang .data
 #' @return Dataframe of paths.
 get_paths <- function(points, seeds) {
-  paths <- purrr::accumulate(.x = rep(list(seeds), 100),
-                             .f = move_points,
-                             .init = points)
+  paths <- purrr::accumulate(
+    .x = rep(list(seeds), 100),
+    .f = move_points,
+    .init = points
+  )
   paths <- dplyr::bind_rows(paths)
   paths <- paths %>%
     dplyr::group_by(.data$id) %>%
-    dplyr::mutate(xend = dplyr::lead(.data$x),
-                  yend = dplyr::lead(.data$y)) %>%
+    dplyr::mutate(
+      xend = dplyr::lead(.data$x),
+      yend = dplyr::lead(.data$y)
+    ) %>%
     dplyr::filter(!is.na(.data$xend)) %>%
     dplyr::filter(.data$time <= .data$percentage)
 }
@@ -221,6 +266,8 @@ get_point_paths <- function(points, paths) {
   # Handle paths that were dropped because they didn't go anywhere
   point_paths <- points %>%
     dplyr::anti_join(paths, by = "id") %>%
-    dplyr::mutate(hex_color = get_color(0, 0),
-                  alpha_value = 1)
+    dplyr::mutate(
+      hex_color = get_color(0, 0),
+      alpha_value = 1
+    )
 }
