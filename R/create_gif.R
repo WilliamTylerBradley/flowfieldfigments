@@ -36,7 +36,7 @@ create_gif <- function(seeds, size, anchor_layout, hue_turn, color_scheme,
 
   if (movement == "march") {
     max_frame <- max(paths$time) + 9
-    for (frame in 0:max_frame) { # check max time plus something
+    for (frame in 0:max_frame) {
       sub_paths <- paths %>%
         dplyr::ungroup() %>%
         dplyr::filter(.data$time > frame - 10 & .data$time <= frame) %>%

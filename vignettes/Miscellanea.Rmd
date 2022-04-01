@@ -1,0 +1,102 @@
+---
+title: "Miscellanea"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Miscellanea}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## Background
+
+This vignette covers the rest of the code to finish up the project. The following code snippets display what happens in the package.
+
+## Point Paths
+
+Sometimes points won't travel because they were generated on a plateau. In those cases, they also won't show up in the paths data set because they are filtered out as they won't show up by segments. We'll need to create points for these points and graph them separately. This function will create the appropriate data set. 
+
+```{r get_point_paths, eval=FALSE}
+get_point_paths <- function(points, paths) {
+  # Handle paths that were dropped because they didn't go anywhere
+  point_paths <- points %>%
+    anti_join(paths, by = "id") %>%
+    mutate(
+      hex_color = get_color(0, 0),
+      alpha_value = 1
+    )
+}
+```
+
+## Alpha Taper
+
+For png files, there are three options for alpha taper. `start` sets the alpha to the lowest value at the beginning, `end` sets it at the end, and `both` fades in both directions. Note: based on the code here, `both` is the default.
+
+```{r alpha_taper, eval=FALSE}
+if (alpha_taper == "start") {
+  paths <- paths %>%
+    group_by(id) %>%
+    mutate(alpha_value = 1 - (max(time) - time) /
+      (max(time) + 1)) %>%
+    ungroup()
+} else if (alpha_taper == "end") {
+  paths <- paths %>%
+    group_by(id) %>%
+    mutate(alpha_value = 1 - (time / (max(time) + 1))) %>%
+    ungroup()
+} else {
+  paths <- paths %>%
+    group_by(id) %>%
+    mutate(alpha_value = 1 - (abs(time - median(time)) /
+      (median(time) + 1))) %>%
+    ungroup()
+}
+```
+
+## Movement
+
+For gif files, there are two movement options, `march` and `glide`. These operate by creating a subset of the path data set to render at each step. `march` only graphs a little bit of the path at a time. As time moves forward, so do the parts of the paths. `glide`, the other option, stretches out along the entire path and shrinks from the anchor point to the end.
+
+```{r movement_march, eval=FALSE}
+if (movement == "march") {
+  max_frame <- max(paths$time) + 9
+  for (frame in 0:max_frame) { # check max time plus something
+    sub_paths <- paths %>%
+      ungroup() %>%
+      filter(time > frame - 10 & time <= frame) %>%
+      mutate(alpha_value = 1 - (max(time) - time) / 10)
+
+    if (frame <= 10) {
+      point_paths <- point_paths %>%
+        mutate(alpha_value = (10 - frame) / 10)
+    } else {
+      point_paths <- point_paths[0, ]
+    }
+    ## ggplot code here
+  }
+}
+```
+
+```{r movement_glide, eval=FALSE}
+else {
+  max_frame <- max(paths$time) * 2
+  for (frame in 0:max_frame) {
+    if (frame <= max_frame / 2) {
+      sub_paths <- paths %>%
+        filter(time <= frame)
+    } else {
+      sub_paths <- paths %>%
+        filter(time >= frame - max_frame / 2)
+    
+      point_paths <- point_paths[0, ]
+    }
+    ## ggplot code here
+  }
+}
+```

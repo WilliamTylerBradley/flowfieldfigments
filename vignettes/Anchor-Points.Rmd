@@ -28,6 +28,7 @@ The following images display the `random` anchor point style for a middle `size`
 ```{r random_750, fig.align='center', fig.cap = "Random 750", message = FALSE, warning = FALSE}
 library(flowfieldfigments)
 library(tidyverse)
+library(scales)
 library(mvtnorm)
 library(ambient)
 

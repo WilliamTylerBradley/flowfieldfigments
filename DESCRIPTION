@@ -24,5 +24,6 @@ Suggests:
     rmarkdown,
     knitr,
     tidyverse,
-    colorspace
+    colorspace,
+    scales
 VignetteBuilder: knitr
