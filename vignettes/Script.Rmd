@@ -1,0 +1,511 @@
+---
+title: "Script"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Script}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+This vignette contains one large script for all the code in this package. This file makes it easy if you want to change, adapt, or tear apart what happens here.
+
+```{r script, eval=FALSE}
+# Libraries
+library(tidyverse)
+library(tidyr)
+library(purrr)
+library(ambient)
+library(mvtnorm)
+library(gifski)
+library(stringr)
+
+# Base colors
+get_color <- function(angle, percentage) {
+  vectors <- data.frame(
+    v1 = c(
+      0.99258009214842,
+      0,
+      -0.121592601216663
+    ),
+    v2 = c(
+      0.0172593263893888,
+      0.989874705747223,
+      0.14089067596698
+    ),
+    p = c(
+      0,
+      0,
+      74.8443331534229
+    )
+  )
+
+  v <- vectors[["p"]] +
+    (percentage / 100 * 63) * cos(angle * pi / 180) * vectors[["v1"]] +
+    (percentage / 100 * 63) * sin(angle * pi / 180) * vectors[["v2"]]
+
+  hue <- (atan2(v[2], v[1]) * 180 / pi) %% 360
+  chroma <- sqrt(v[1]^2 + v[2]^2)
+  luminance <- v[3]
+
+  hcl(hue, chroma, luminance, fixup = FALSE)
+}
+
+# Subset colors
+get_color_subset <- function(center, width, angle, percentage) {
+  get_color(width * sin(angle * pi / 180) + center, percentage)
+}
+
+# Directional vectors
+get_vectors <- function(points, seeds) {
+  vectors <- points %>%
+    mutate(
+      x_direction = gen_simplex(x,
+        y,
+        frequency = .01,
+        seed = seeds[1]
+      ),
+      y_direction = gen_simplex(x,
+        y,
+        frequency = .01,
+        seed = seeds[2]
+      )
+    ) %>%
+    mutate(vector_length = sqrt(x_direction^2 +
+      y_direction^2)) %>%
+    mutate(
+      x_direction = x_direction / vector_length,
+      y_direction = y_direction / vector_length
+    ) %>%
+    select(-vector_length)
+}
+
+# Move points
+move_points <- function(points, seeds) {
+  points <- points %>%
+    get_vectors(seeds) %>%
+    mutate(
+      x = x + x_direction * .5,
+      y = y + y_direction * .5,
+      time = time + 1
+    )
+  return(points)
+}
+
+# Set up anchor points
+get_anchor_points <- function(seeds, size, anchor_layout,
+                              hue_turn, color_scheme,
+                              color_subset_center, color_subset_width) {
+  if (anchor_layout == "random") {
+    # random layout
+    points <- as.data.frame(rmvnorm(
+      n = size,
+      sigma = diag(size * 4 / (floor(log10(size)) + 1),
+        nrow = 2
+      )
+    )) %>% # sd is number 4/digits
+      rename(
+        x = V1,
+        y = V2
+      ) %>%
+      mutate(id = row_number())
+  } else if (anchor_layout == "spiral") {
+    # spiral layout
+    golden <- ((sqrt(5) + 1) / 2) * (2 * pi)
+
+    points <- data.frame(
+      x = sqrt(seq(1, size)) * cos(golden * seq(1, size)) * 2.5,
+      y = sqrt(seq(1, size)) * sin(golden * seq(1, size)) * 2.5
+    ) %>%
+      mutate(id = row_number())
+  } else {
+    # diamond grid
+    grid_width <- ifelse(size <= 1500 / 2, ceiling(sqrt(size)), floor(sqrt(size)))
+
+    points <- expand_grid(
+      x_start = seq(1, grid_width) - (grid_width / 2) - .5,
+      y_start = seq(1, grid_width) - (grid_width / 2) - .5
+    ) %>%
+      mutate(
+        x = (x_start * cos(45 * pi / 180) -
+          y_start * sin(45 * pi / 180)) * 5,
+        y = (x_start * sin(45 * pi / 180) +
+          y_start * cos(45 * pi / 180)) * 5,
+        id = row_number()
+      ) %>%
+      select(-x_start, -y_start)
+  }
+
+  if (color_scheme == "subset") {
+    points <- get_vectors(points, seeds) %>%
+      mutate(distance = gen_simplex(x,
+        y,
+        frequency = .01,
+        seed = seeds[3]
+      )) %>%
+      mutate(
+        angle =
+          (atan2(y_direction, x_direction) * 180 / pi) %%
+            360 + hue_turn,
+        percentage = pnorm(distance,
+          mean = 0,
+          sd(distance)
+        ) * 100
+      ) %>%
+      rowwise() %>%
+      mutate(
+        hex_color = get_color_subset(
+          color_subset_center,
+          color_subset_width,
+          angle,
+          percentage
+        ),
+        time = 0
+      ) %>%
+      ungroup() %>%
+      select(
+        id, x, y,
+        hex_color, percentage, time
+      )
+  } else {
+    points <- get_vectors(points, seeds) %>%
+      mutate(distance = gen_simplex(x,
+        y,
+        frequency = .01,
+        seed = seeds[3]
+      )) %>%
+      mutate(
+        angle =
+          (atan2(y_direction, x_direction) * 180 / pi) %%
+            360 + hue_turn,
+        percentage = pnorm(distance,
+          mean = 0,
+          sd(distance)
+        ) * 100
+      ) %>%
+      rowwise() %>%
+      mutate(
+        hex_color = get_color(angle, percentage),
+        time = 0
+      ) %>%
+      ungroup() %>%
+      select(
+        id, x, y,
+        hex_color, percentage, time
+      )
+  }
+
+  return(points)
+}
+
+# Create the paths
+get_paths <- function(points, seeds) {
+  paths <- accumulate(
+    .x = rep(list(seeds), 100),
+    .f = move_points,
+    .init = points
+  )
+  paths <- bind_rows(paths)
+  paths <- paths %>%
+    group_by(id) %>%
+    mutate(
+      xend = lead(x),
+      yend = lead(y)
+    ) %>%
+    filter(!is.na(xend)) %>%
+    filter(time <= percentage)
+}
+
+get_point_paths <- function(points, paths) {
+  # Handle paths that were dropped because they didn't go anywhere
+  point_paths <- points %>%
+    anti_join(paths, by = "id") %>%
+    mutate(
+      hex_color = get_color(0, 0),
+      alpha_value = 1
+    )
+}
+
+# Create a png file
+create_png <- function(seeds, size, anchor_layout, hue_turn, color_scheme,
+                       color_subset_center, color_subset_width,
+                       alpha_taper, output_file) {
+  points <- get_anchor_points(
+    seeds, size, anchor_layout,
+    hue_turn, color_scheme,
+    color_subset_center, color_subset_width
+  )
+  paths <- get_paths(points, seeds)
+  point_paths <- get_point_paths(points, paths)
+
+  if (alpha_taper == "start") {
+    paths <- paths %>%
+      group_by(id) %>%
+      mutate(alpha_value = 1 - (max(time) - time) /
+        (max(time) + 1)) %>%
+      ungroup()
+  } else if (alpha_taper == "end") {
+    paths <- paths %>%
+      group_by(id) %>%
+      mutate(alpha_value = 1 - (time / (max(time) + 1))) %>%
+      ungroup()
+  } else {
+    paths <- paths %>%
+      group_by(id) %>%
+      mutate(alpha_value = 1 - (abs(time - median(time)) /
+        (median(time) + 1))) %>%
+      ungroup()
+  }
+
+  axes_limits <- max(c(abs(c(
+    paths$x,
+    paths$y,
+    paths$xend,
+    paths$yend
+  ))))
+
+  ggplot() +
+    geom_point(
+      data = point_paths,
+      aes(
+        x = x, y = y,
+        color = hex_color,
+        alpha = alpha_value
+      ),
+      size = .25,
+      stroke = 0, shape = 16
+    ) +
+    geom_segment(
+      data = paths,
+      aes(
+        x = x, y = y,
+        xend = xend, yend = yend,
+        color = hex_color,
+        alpha = alpha_value
+      ),
+      lineend = "round",
+      linejoin = "round",
+      size = .15
+    ) +
+    scale_color_identity() +
+    scale_alpha_identity() +
+    scale_x_continuous(limits = c(-axes_limits, axes_limits)) +
+    scale_y_continuous(limits = c(-axes_limits, axes_limits)) +
+    coord_equal() +
+    theme_void() +
+    theme(plot.background = element_rect(
+      color = "white",
+      fill = "white"
+    ))
+
+  ggsave(
+    filename = output_file,
+    device = "png",
+    widt = 2.5,
+    height = 2.5
+  )
+}
+
+# Create a gif file
+create_gif <- function(seeds, size, anchor_layout, hue_turn, color_scheme,
+                       color_subset_center, color_subset_width,
+                       movement, output_file) {
+  points <- get_anchor_points(
+    seeds, size, anchor_layout,
+    hue_turn, color_scheme,
+    color_subset_center, color_subset_width
+  )
+  paths <- get_paths(points, seeds)
+  point_paths <- get_point_paths(points, paths)
+
+  axes_limits <- max(c(abs(c(
+    paths$x,
+    paths$y,
+    paths$xend,
+    paths$yend
+  ))))
+
+  tp_dr <- tempdir()
+
+  if (movement == "march") {
+    max_frame <- max(paths$time) + 9
+    for (frame in 0:max_frame) {
+      sub_paths <- paths %>%
+        ungroup() %>%
+        filter(time > frame - 10 & time <= frame) %>%
+        mutate(alpha_value = 1 - (max(time) - time) / 10)
+
+      if (frame <= 10) {
+        point_paths <- point_paths %>%
+          mutate(alpha_value = (10 - frame) / 10)
+      } else {
+        point_paths <- point_paths[0, ]
+      }
+
+      ggplot() +
+        geom_point(
+          data = point_paths,
+          aes(
+            x = x, y = y,
+            color = hex_color,
+            alpha = alpha_value
+          ),
+          size = .25,
+          stroke = 0, shape = 16
+        ) +
+        geom_segment(
+          data = sub_paths,
+          aes(
+            x = x, y = y,
+            xend = xend, yend = yend,
+            color = hex_color,
+            alpha = alpha_value
+          ),
+          lineend = "round",
+          linejoin = "round",
+          size = .15
+        ) +
+        scale_color_identity() +
+        scale_alpha_identity() +
+        scale_x_continuous(limits = c(-axes_limits, axes_limits)) +
+        scale_y_continuous(limits = c(-axes_limits, axes_limits)) +
+        coord_equal() +
+        theme_void() +
+        theme(plot.background = element_rect(
+          color = "white",
+          fill = "white"
+        ))
+
+      ggsave(
+        filename = file.path(
+          tp_dr,
+          paste0("image_", str_pad(frame, 3, pad = "0"), ".png")
+        ),
+        widt = 2.5,
+        height = 2.5
+      )
+    }
+  } else {
+    max_frame <- max(paths$time) * 2
+    for (frame in 0:max_frame) {
+      if (frame <= max_frame / 2) {
+        sub_paths <- paths %>%
+          filter(time <= frame)
+      } else {
+        sub_paths <- paths %>%
+          filter(time >= frame - max_frame / 2)
+
+        point_paths <- point_paths[0, ]
+      }
+
+      ggplot() +
+        geom_point(
+          data = point_paths,
+          aes(
+            x = x, y = y,
+            color = hex_color
+          ),
+          size = .25,
+          stroke = 0, shape = 16
+        ) +
+        geom_segment(
+          data = sub_paths,
+          aes(
+            x = x, y = y,
+            xend = xend, yend = yend,
+            color = hex_color
+          ),
+          lineend = "round",
+          linejoin = "round",
+          size = .15
+        ) +
+        scale_color_identity() +
+        scale_alpha_identity() +
+        scale_x_continuous(limits = c(-axes_limits, axes_limits)) +
+        scale_y_continuous(limits = c(-axes_limits, axes_limits)) +
+        coord_equal() +
+        theme_void() +
+        theme(plot.background = element_rect(
+          color = "white",
+          fill = "white"
+        ))
+
+      ggsave(
+        filename = file.path(
+          tp_dr,
+          paste0("image_", str_pad(frame, 3, pad = "0"), ".png")
+        ),
+        widt = 2.5,
+        height = 2.5
+      )
+    }
+  }
+
+  imgs <- file.path(tp_dr, list.files(tp_dr, pattern = "^image_...\\.png$"))
+  gifski(imgs,
+    delay = 1 / 15,
+    gif_file = output_file,
+    width = 750,
+    height = 750,
+    progress = FALSE
+  )
+
+  # Clean up
+  unlink(imgs)
+}
+```
+
+The following snippet uses code from the prior section. This lists out a file for each of the different options.
+
+```{r test_run, eval=FALSE}
+## Test script
+set.seed(1)
+# 2 options for full or subset color scheme
+# 3 options for anchor layout
+# 5 options for (3) png alpha taper + (2) gif movement
+for (i in seq(1, 2 * 3 * 5)) {
+  seeds <- sample(1:10000, 3)
+  size <- sample(seq(50, 1500), 1, replace = TRUE)
+  anchor_layout <- c("random", "spiral", "grid")[i %% 3 + 1]
+  hue_turn <- runif(1, 0, 360)
+  color_scheme <- c("full", "subset")[i %% 2 + 1]
+  color_subset_center <- runif(1, 0, 360)
+  color_subset_width <- runif(1, 30, 90)
+  movement <- c("", "march", "", "glide", "")[i %% 5 + 1]
+  alpha_taper <- c("start", "", "end", "", "both")[i %% 5 + 1]
+
+  if ((i %% 5 + 1) %in% c(1, 3, 5)) {
+    save_name <- paste0(
+      color_scheme, "_",
+      anchor_layout, "_",
+      alpha_taper, "_",
+      i, ".png"
+    )
+    create_png(
+      seeds, size, anchor_layout, hue_turn,
+      color_scheme, color_subset_center,
+      color_subset_width, alpha_taper,
+      save_name
+    )
+  } else {
+    save_name <- paste0(
+      color_scheme, "_",
+      anchor_layout, "_",
+      movement, "_",
+      i, ".gif"
+    )
+    create_gif(
+      seeds, size, anchor_layout, hue_turn,
+      color_scheme, color_subset_center,
+      color_subset_width, movement,
+      save_name
+    )
+  }
+}
+```
