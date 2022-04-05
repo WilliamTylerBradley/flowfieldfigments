@@ -1,0 +1,14 @@
+pandoc: 2.7.3
+pkgdown: 2.0.2
+pkgdown_sha: ~
+articles:
+  Anchor-Points: Anchor-Points.html
+  Color-Schemes: Color-Schemes.html
+  Miscellanea: Miscellanea.html
+  Paths: Paths.html
+  Script: Script.html
+last_built: 2022-04-05T02:13Z
+urls:
+  reference: https://williamtylerbradley.github.io/flowfieldfigments/reference
+  article: https://williamtylerbradley.github.io/flowfieldfigments/articles
+
