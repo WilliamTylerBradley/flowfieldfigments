@@ -1,0 +1,13 @@
+url: ~
+template:
+  bootstrap: 5
+
+articles:
+- title: Articles
+  navbar: ~
+  contents:
+  - Color-Schemes
+  - Anchor-Points
+  - Paths
+  - Miscellanea
+  - Script
