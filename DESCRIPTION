@@ -27,3 +27,4 @@ Suggests:
     colorspace,
     scales
 VignetteBuilder: knitr
+URL: https://williamtylerbradley.github.io/flowfieldfigments/
