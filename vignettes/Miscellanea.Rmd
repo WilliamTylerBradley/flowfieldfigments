@@ -61,7 +61,7 @@ if (alpha_taper == "start") {
 
 ## Movement
 
-For gif files, there are two movement options, `march` and `glide`. These operate by creating a subset of the path data set to render at each step. `march` only graphs a little bit of the path at a time. As time moves forward, so do the parts of the paths. `glide`, the other option, stretches out along the entire path and shrinks from the anchor point to the end.
+For gif and mp4 files, there are two movement options, `march` and `glide`. These operate by creating a subset of the path data set to render at each step. `march` only graphs a little bit of the path at a time. As time moves forward, so do the parts of the paths. `glide`, the other option, stretches out along the entire path and shrinks from the anchor point to the end.
 
 ```{r movement_march, eval=FALSE}
 if (movement == "march") {
