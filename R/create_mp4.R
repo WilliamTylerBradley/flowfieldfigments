@@ -14,7 +14,7 @@
 #' @importFrom rlang .data
 #' @return mp4 file
 #' @export
-create_gif <- function(seeds, size, anchor_layout, hue_turn, color_scheme,
+create_mp4 <- function(seeds, size, anchor_layout, hue_turn, color_scheme,
                        color_subset_center, color_subset_width,
                        movement, output_file) {
   points <- get_anchor_points(

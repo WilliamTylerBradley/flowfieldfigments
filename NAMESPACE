@@ -2,6 +2,7 @@
 
 export("%>%")
 export(create_gif)
+export(create_mp4)
 export(create_png)
 export(get_color)
 export(get_color_subset)
