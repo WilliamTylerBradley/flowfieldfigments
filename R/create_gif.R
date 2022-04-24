@@ -148,6 +148,27 @@ create_gif <- function(seeds, size, anchor_layout, hue_turn, color_scheme,
     }
   }
 
+  ggplot2::ggplot() +
+    ggplot2::scale_color_identity() +
+    ggplot2::scale_alpha_identity() +
+    ggplot2::scale_x_continuous(limits = c(-axes_limits, axes_limits)) +
+    ggplot2::scale_y_continuous(limits = c(-axes_limits, axes_limits)) +
+    ggplot2::coord_equal() +
+    ggplot2::theme_void() +
+    ggplot2::theme(plot.background = ggplot2::element_rect(
+      color = "white",
+      fill = "white"
+    ))
+
+  ggplot2::ggsave(
+    filename = file.path(
+      tp_dr,
+      paste0("image_", stringr::str_pad(frame + 1, 3, pad = "0"), ".png")
+    ),
+    widt = 2.5,
+    height = 2.5
+  )
+
   imgs <- file.path(tp_dr, list.files(tp_dr, pattern = "^image_...\\.png$"))
   gifski::gifski(imgs,
     delay = 1 / 15,
