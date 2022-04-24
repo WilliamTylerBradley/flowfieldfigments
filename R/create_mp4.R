@@ -1,4 +1,4 @@
-#' Creates a gif file
+#' Creates a mp4 file
 #'
 #' @param seeds Values to set the random seeds in \code{gen_simplex}.
 #' @param size Number of points.
@@ -10,11 +10,11 @@
 #' @param movement Determines how the paths are animated. Options are "march"
 #' and "glide". "march" moves small parts along the path. "glide" fills the path
 #' entirely then shrinks it away.
-#' @param output_file File to save the gif.
+#' @param output_file File to save the mp4
 #' @importFrom rlang .data
-#' @return gif file
+#' @return mp4 file
 #' @export
-create_gif <- function(seeds, size, anchor_layout, hue_turn, color_scheme,
+create_mp4 <- function(seeds, size, anchor_layout, hue_turn, color_scheme,
                        color_subset_center, color_subset_width,
                        movement, output_file) {
   points <- get_anchor_points(
@@ -170,13 +170,10 @@ create_gif <- function(seeds, size, anchor_layout, hue_turn, color_scheme,
   )
 
   imgs <- file.path(tp_dr, list.files(tp_dr, pattern = "^image_...\\.png$"))
-  gifski::gifski(imgs,
-    delay = 1 / 15,
-    gif_file = output_file,
-    width = 750,
-    height = 750,
-    progress = FALSE
-  )
+  av::av_encode_video(imgs,
+                      output = output_file,
+                      framerate = 15,
+                      verbose = FALSE)
 
   # Clean up
   unlink(imgs)

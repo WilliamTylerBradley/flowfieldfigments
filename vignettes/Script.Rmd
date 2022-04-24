@@ -447,6 +447,27 @@ create_gif <- function(seeds, size, anchor_layout, hue_turn, color_scheme,
     }
   }
 
+  ggplot() +
+    scale_color_identity() +
+    scale_alpha_identity() +
+    scale_x_continuous(limits = c(-axes_limits, axes_limits)) +
+    scale_y_continuous(limits = c(-axes_limits, axes_limits)) +
+    coord_equal() +
+    theme_void() +
+    theme(plot.background = element_rect(
+      color = "white",
+      fill = "white"
+    ))
+
+  ggsave(
+    filename = file.path(
+      tp_dr,
+      paste0("image_", str_pad(frame + 1, 3, pad = "0"), ".png")
+    ),
+    widt = 2.5,
+    height = 2.5
+  )
+  
   imgs <- file.path(tp_dr, list.files(tp_dr, pattern = "^image_...\\.png$"))
   gifski(imgs,
     delay = 1 / 15,
@@ -459,9 +480,176 @@ create_gif <- function(seeds, size, anchor_layout, hue_turn, color_scheme,
   # Clean up
   unlink(imgs)
 }
+
+# Create a mp4 file
+create_mp4 <- function(seeds, size, anchor_layout, hue_turn, color_scheme,
+                       color_subset_center, color_subset_width,
+                       movement, output_file) {
+  points <- get_anchor_points(
+    seeds, size, anchor_layout,
+    hue_turn, color_scheme,
+    color_subset_center, color_subset_width
+  )
+  paths <- get_paths(points, seeds)
+  point_paths <- get_point_paths(points, paths)
+
+  axes_limits <- max(c(abs(c(
+    paths$x,
+    paths$y,
+    paths$xend,
+    paths$yend
+  ))))
+
+  tp_dr <- tempdir()
+
+  if (movement == "march") {
+    max_frame <- max(paths$time) + 9
+    for (frame in 0:max_frame) {
+      sub_paths <- paths %>%
+        ungroup() %>%
+        filter(time > frame - 10 & time <= frame) %>%
+        mutate(alpha_value = 1 - (max(time) - time) / 10)
+
+      if (frame <= 10) {
+        point_paths <- point_paths %>%
+          mutate(alpha_value = (10 - frame) / 10)
+      } else {
+        point_paths <- point_paths[0, ]
+      }
+
+      ggplot() +
+        geom_point(
+          data = point_paths,
+          aes(
+            x = x, y = y,
+            color = hex_color,
+            alpha = alpha_value
+          ),
+          size = .25,
+          stroke = 0, shape = 16
+        ) +
+        geom_segment(
+          data = sub_paths,
+          aes(
+            x = x, y = y,
+            xend = xend, yend = yend,
+            color = hex_color,
+            alpha = alpha_value
+          ),
+          lineend = "round",
+          linejoin = "round",
+          size = .15
+        ) +
+        scale_color_identity() +
+        scale_alpha_identity() +
+        scale_x_continuous(limits = c(-axes_limits, axes_limits)) +
+        scale_y_continuous(limits = c(-axes_limits, axes_limits)) +
+        coord_equal() +
+        theme_void() +
+        theme(plot.background = element_rect(
+          color = "white",
+          fill = "white"
+        ))
+
+      ggsave(
+        filename = file.path(
+          tp_dr,
+          paste0("image_", str_pad(frame, 3, pad = "0"), ".png")
+        ),
+        widt = 2.5,
+        height = 2.5
+      )
+    }
+  } else {
+    max_frame <- max(paths$time) * 2
+    for (frame in 0:max_frame) {
+      if (frame <= max_frame / 2) {
+        sub_paths <- paths %>%
+          filter(time <= frame)
+      } else {
+        sub_paths <- paths %>%
+          filter(time >= frame - max_frame / 2)
+
+        point_paths <- point_paths[0, ]
+      }
+
+      ggplot() +
+        geom_point(
+          data = point_paths,
+          aes(
+            x = x, y = y,
+            color = hex_color
+          ),
+          size = .25,
+          stroke = 0, shape = 16
+        ) +
+        geom_segment(
+          data = sub_paths,
+          aes(
+            x = x, y = y,
+            xend = xend, yend = yend,
+            color = hex_color
+          ),
+          lineend = "round",
+          linejoin = "round",
+          size = .15
+        ) +
+        scale_color_identity() +
+        scale_alpha_identity() +
+        scale_x_continuous(limits = c(-axes_limits, axes_limits)) +
+        scale_y_continuous(limits = c(-axes_limits, axes_limits)) +
+        coord_equal() +
+        theme_void() +
+        theme(plot.background = element_rect(
+          color = "white",
+          fill = "white"
+        ))
+
+      ggsave(
+        filename = file.path(
+          tp_dr,
+          paste0("image_", str_pad(frame, 3, pad = "0"), ".png")
+        ),
+        widt = 2.5,
+        height = 2.5
+      )
+    }
+  }
+
+  ggplot() +
+    scale_color_identity() +
+    scale_alpha_identity() +
+    scale_x_continuous(limits = c(-axes_limits, axes_limits)) +
+    scale_y_continuous(limits = c(-axes_limits, axes_limits)) +
+    coord_equal() +
+    theme_void() +
+    theme(plot.background = element_rect(
+      color = "white",
+      fill = "white"
+    ))
+
+  ggsave(
+    filename = file.path(
+      tp_dr,
+      paste0("image_", str_pad(frame + 1, 3, pad = "0"), ".png")
+    ),
+    widt = 2.5,
+    height = 2.5
+  )
+
+  imgs <- file.path(tp_dr, list.files(tp_dr, pattern = "^image_...\\.png$"))
+  av_encode_video(imgs,
+                      output = output_file,
+                      framerate = 15,
+                      verbose = FALSE)
+
+  # Clean up
+  unlink(imgs)
+}
+
 ```
 
-The following snippet uses code from the prior section. This lists out a file for each of the different options.
+The following snippet uses code from the prior section. This lists out a file for each of the different options for png and mp4.
 
 ```{r test_run, eval=FALSE}
 ## Test script
@@ -498,7 +686,7 @@ for (i in seq(1, 2 * 3 * 5)) {
       color_scheme, "_",
       anchor_layout, "_",
       movement, "_",
-      i, ".gif"
+      i, ".mp4"
     )
     create_gif(
       seeds, size, anchor_layout, hue_turn,
